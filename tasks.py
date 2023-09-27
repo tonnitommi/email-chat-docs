@@ -2,13 +2,16 @@ from robocorp.tasks import task
 from robocorp import workitems, vault
 from RPA.Notifier import Notifier
 
-import openai
-
 from llama_index import VectorStoreIndex, SimpleDirectoryReader
 
+import openai
 import os
 
+# TODO: Make code prettier, maybe in some smaller methods
+# TODO: Check for too many tokens in prompts
+
 DATA_FOLDER = "data"
+THRESHOLD = 0.6
 QUESTIONS_EXTRACT_PROMPT = """Your task is to extract the users questions, and questions only, from
 the following email body. User is asking questions regarding documents, and the extracted
 questions will be used in the next step one by one.
@@ -57,7 +60,7 @@ def chat_with_docs():
     except Exception as e:
         print("Problem with emails:", str(e))
         return
-    
+
     # If no files are found, no reason to continue.
     if not paths:
         print("No files, exiting")
@@ -80,19 +83,63 @@ def chat_with_docs():
     index = create_index(DATA_FOLDER)
     query_engine = index.as_query_engine()
 
-    print(f"------Iterating the questions ------")
+    body = f"Hi {email.from_.name}!\n\nHere are the replies to your questions:\n\n"
 
-    body = "Replies to your questions:\n\n"
-
+    # Iterate over all the questions
     for line in response['choices'][0]['message']['content'].splitlines():
-        response = query_engine.query(line)
-        body = body + f"Question: {line}\n"
-        body = body + f"Response: {response}\n\n"
 
+        # The first query looks for the relevant contexts.
+        # TODO: Add more info to the prompt, now it's just a basic question
+        # without any instructions.
+        response = query_engine.query(line)
+
+        # TODO: Put this to templates
+        final_prompt = f"""Your task is to answer the following question:\n\n{line}\n\n
+Use only the information provided by the following contextual information that another
+AI assistant has extracted from the document provided by the user. If the contextual
+information does not provide an answer to the question, clearly state that. Do not rely
+on your generic information in answering the question. You may use tables and bullet list
+to make the information easily understanable, if they make sense in the context of the
+question.
+
+Along with the context, also the source is mentioned (the document and the page). In your
+final response, include the sources either in the relevant places of your response, or in the
+end.
+"""
+
+        # For each found context or "node" add them to prompt if their score is high enough.
+        for node in response.source_nodes:
+
+            if node.score > THRESHOLD:
+                final_prompt = final_prompt + "\n\n***CONTEXT***\n" + node.text + f"\n***SOURCE:*** File: {node.metadata['file_name']}, page{node.metadata['page_label']}\n"
+            else:
+                print("Score too low, ignoring the node.")
+
+        # Do the final question
+        final_response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Your are an assistant helping to answer user's question based on the information found by other AI Assistants."},
+                {"role": "user", "content": final_prompt}
+            ]
+        )
+
+        body = body + "-------------------------------------------------------\n\n"
+        body = body + f"Question: {line}\n\n"
+        body = body + f"Response: {final_response['choices'][0]['message']['content']}\n\n"
+
+    # This is outside of the for loop
     notifier = Notifier()
     gmail_credentials = vault.get_secret("Google")
 
-    notifier.notify_gmail(body, email.from_.address, gmail_credentials["email"], gmail_credentials["email-app-password"])
+    # TODO: Change to use better library, and make it a reply...
+    # TODO: Make them html emails
+    notifier.notify_gmail(
+        message=body,
+        to=email.from_.address,
+        username=gmail_credentials["email"],
+        password=gmail_credentials["email-app-password"],
+        subject="Message from a friendly bot")
 
 
 def create_index(folder):
@@ -102,6 +149,6 @@ def create_index(folder):
     docs = reader.load_data()
 
     index = VectorStoreIndex.from_documents(docs)
-    
+
     return index
 

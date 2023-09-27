@@ -9,7 +9,7 @@
           }
         ],
         "from": {
-          "address": "mark.the.monkey@robocorp.com",
+          "address": "tommi@robocorp.com",
           "name": "Mark the Monkey"
         },
         "cc": [],
@@ -20,7 +20,7 @@
         },
         "date": "2022-02-22T06:00:00Z",
         "subject": "A small step for a monkey...",
-        "text": "My questions are Which company is this report about? What is the key improvement year on year reported?"
+        "text": "Can you please all companies who's data was provided, and state their total CO2 emissions in the reported year?"
       }
     },
       "files": {
