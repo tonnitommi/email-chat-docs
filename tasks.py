@@ -90,7 +90,7 @@ def chat_with_docs():
 
         # The first query looks for the relevant contexts.
         # TODO: Add more info to the prompt, now it's just a basic question
-        # without any instructions.
+        # without any instructions. Or configure a custom query engine.
         response = query_engine.query(line)
 
         # TODO: Put this to templates
