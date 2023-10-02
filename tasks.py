@@ -43,19 +43,6 @@ Now your turn, extract questions from this message:
 
 """
 
-FINAL_PROMPT_TEMPLATE = f"""Your task is to answer the following question:\n\n{line}\n\n
-Use only the information provided by the following contextual information that another
-AI assistant has extracted from the document provided by the user. If the contextual
-information does not provide an answer to the question, clearly state that. Do not rely
-on your generic information in answering the question. You may use tables and bullet list
-to make the information easily understanable, if they make sense in the context of the
-question.
-
-Along with the context, also the source is mentioned (the document and the page). In your
-final response, include the sources either in the relevant places of your response, or in the
-end.
-"""
-
 @task
 def chat_with_docs():
     """Read docs from input work item and answer questions."""
@@ -107,7 +94,17 @@ def chat_with_docs():
         response = query_engine.query(line)
 
         # TODO: Put this to templates
+        final_prompt = f"""Your task is to answer the following question:\n\n{line}\n\n
+Use only the information provided by the following contextual information that another
+AI assistant has extracted from the document provided by the user. If the contextual
+information does not provide an answer to the question, clearly state that. You may use
+tables and bullet list to make the information easily understanable, if they make sense
+in the context of the question.
 
+Along with the context, also the source is mentioned (the document and the page). In your
+final response, include the sources either in the relevant places of your response, or in the
+end.
+"""
 
         # For each found context or "node" add them to prompt if their score is high enough.
         for node in response.source_nodes:
