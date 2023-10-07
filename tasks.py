@@ -5,14 +5,11 @@ from RPA.Notifier import Notifier
 from llama_index import VectorStoreIndex, SimpleDirectoryReader
 
 import openai
-import os
-
-# TODO: Make code prettier, maybe in some smaller methods
-# TODO: Check for too many tokens in prompts
 
 DATA_FOLDER = "data"
 THRESHOLD = 0.6
-QUESTIONS_EXTRACT_PROMPT = """Your task is to extract the users questions, and questions only, from
+QUESTIONS_EXTRACT_PROMPT = """
+Your task is to extract the users questions, and questions only, from
 the following email body. User is asking questions regarding documents, and the extracted
 questions will be used in the next step one by one.
 
@@ -45,14 +42,14 @@ Now your turn, extract questions from this message:
 
 @task
 def chat_with_docs():
-    """Read docs from input work item and answer questions."""
+    """Read docs from email input work item attachments and
+    answer questions from the body."""
 
+    # Get and set OpenAI credentials from Vault (either Control Room or local file)
     openai_credentials = vault.get_secret("OpenAI")
-    os.environ["OPENAI_API_KEY"] = openai_credentials["key"]
     openai.api_key = openai_credentials["key"]
 
-    # Get the input work item and try getting the email and
-    # .pdf attachments out of it.
+    # Get the input work item and try getting the email and .pdf attachments out of it.
     item = workitems.inputs.current
     try:
         email = item.email()
@@ -80,6 +77,7 @@ def chat_with_docs():
         print("User's email body did not contain any questions. Exiting.")
         return
 
+    # Create vector index and query engine from all the files
     index = create_index(DATA_FOLDER)
     query_engine = index.as_query_engine()
 
@@ -88,12 +86,11 @@ def chat_with_docs():
     # Iterate over all the questions
     for line in response['choices'][0]['message']['content'].splitlines():
 
-        # The first query looks for the relevant contexts.
-        # TODO: Add more info to the prompt, now it's just a basic question
-        # without any instructions. Or configure a custom query engine.
+        # Query looks for the relevant contexts - the "Retrieval of RAG".
+        # TIP: This is the most simple query, in real life you'd put more effort here
+        # to e.g. define a custom Query Engine that will do a better job in retrieval.
         response = query_engine.query(line)
 
-        # TODO: Put this to templates
         final_prompt = f"""Your task is to answer the following question:\n\n{line}\n\n
 Use only the information provided by the following contextual information that another
 AI assistant has extracted from the document provided by the user. If the contextual
@@ -106,7 +103,8 @@ final response, include the sources either in the relevant places of your respon
 end.
 """
 
-        # For each found context or "node" add them to prompt if their score is high enough.
+        # For each found "node" add them to prompt if their score is high enough.
+        # Note that we also add the metadata to get the source information to the final response.
         for node in response.source_nodes:
 
             if node.score > THRESHOLD:
@@ -114,7 +112,7 @@ end.
             else:
                 print("Score too low, ignoring the node.")
 
-        # Do the final question
+        # Do the final prompt, the "AG" of RAG.
         final_response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
@@ -127,22 +125,25 @@ end.
         body = body + f"Question: {line}\n\n"
         body = body + f"Response: {final_response['choices'][0]['message']['content']}\n\n"
 
-    # This is outside of the for loop
     notifier = Notifier()
-    gmail_credentials = vault.get_secret("Google")
 
-    # TODO: Change to use better library, and make it a reply...
-    # TODO: Make them html emails
-    notifier.notify_gmail(
-        message=body,
-        to=email.from_.address,
-        username=gmail_credentials["email"],
-        password=gmail_credentials["email-app-password"],
-        subject="Message from a friendly bot")
+    try:
+        # Send a plain text message with gmail
+        gmail_credentials = vault.get_secret("Google")
+        notifier.notify_gmail(
+            message=body,
+            to=email.from_.address,
+            username=gmail_credentials["email"],
+            password=gmail_credentials["email-app-password"],
+            subject="Message from a friendly bot")
+    except:
+        # In case there are no Google email creds available, just print the result to console
+        print("ERROR: No Gmail credentials available")
+        print(body)
 
 
 def create_index(folder):
-    """Creates the vector index out of all files"""
+    """Creates the vector index out of all files in a folder"""
 
     reader = SimpleDirectoryReader(folder)
     docs = reader.load_data()
@@ -150,4 +151,3 @@ def create_index(folder):
     index = VectorStoreIndex.from_documents(docs)
 
     return index
-
