@@ -1,6 +1,6 @@
-# RAG in an hour. The simple RAG with Llamaindex, OpenAI and Robocorp tutorial.
+# The simple RAG with Llamaindex, OpenAI and Robocorp tutorial.
 
-This tutorial walks throught he build of a simple RAG agent using [OpenAI](https://openai.com/), [Llamaindex](https://www.llamaindex.ai/) and running it on Robocorp. Here's what it will do:
+Build RAG in an hour! This tutorial walks throught he build of a simple RAG agent using [OpenAI](https://openai.com/), [Llamaindex](https://www.llamaindex.ai/) and running it on Robocorp. Here's what it will do:
 
 > Hey I have these questions about these documents. Help me!
 
