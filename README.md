@@ -114,6 +114,8 @@ notifier.notify_gmail(
 
 In the end, turning againg to Robocorp's capabilities using [RPA Framework's Notifier library](https://robocorp.com/docs/libraries/rpa-framework/rpa-notifier), that allows super easy way to send emails using gmail. You can easily customize this to be Slack messages or what ever!
 
+💡 Improvement idea: The message is now plain text email and not a reply to the original message. You could make it look much better! 💅
+
 ## Running it
 
 **Run locally**: When running the code from VS Code, remember to start the execution from Robocorp Code extension. The repo contains an [example Work Item](/devdata/work-items-in/example-email-big/work-items.json) that has the correctly formed email and a related attachment file.
