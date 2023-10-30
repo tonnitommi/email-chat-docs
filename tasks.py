@@ -103,6 +103,7 @@ final response, include the sources either in the relevant places of your respon
 end.
 """
 
+        # This is used to determine if any nodes are found from the documents.
         found_anything = False
 
         # For each found "node" add them to prompt if their score is high enough.
