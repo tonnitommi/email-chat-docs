@@ -103,32 +103,44 @@ final response, include the sources either in the relevant places of your respon
 end.
 """
 
+        found_anything = False
+
         # For each found "node" add them to prompt if their score is high enough.
-        # Note that we also add the metadata to get the source information to the final response.
+        # Add the metadata to get the source information to the final response.
         for node in response.source_nodes:
 
             if node.score > THRESHOLD:
                 final_prompt = final_prompt + "\n\n***CONTEXT***\n" + node.text + f"\n***SOURCE:*** File: {node.metadata['file_name']}, page{node.metadata['page_label']}\n"
+
+                found_anything = True
             else:
                 print("Score too low, ignoring the node.")
 
-        # Do the final prompt, the "AG" of RAG.
-        final_response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "Your are an assistant helping to answer user's question based on the information found by other AI Assistants."},
-                {"role": "user", "content": final_prompt}
-            ]
-        )
+        body += "-------------------------------------------------------\n\n"
+        body += f"Question: {line}\n\n"
 
-        body = body + "-------------------------------------------------------\n\n"
-        body = body + f"Question: {line}\n\n"
-        body = body + f"Response: {final_response['choices'][0]['message']['content']}\n\n"
+        if found_anything:
+            print("Found something relevant")
+
+            # Do the final prompt, the "AG" of RAG.
+            final_response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "Your are an assistant helping to answer user's question based on the information found by other AI Assistants."},
+                    {"role": "user", "content": final_prompt}
+                ]
+            )
+
+            body += f"Response: {final_response['choices'][0]['message']['content']}\n\n"
+        else:
+            body += "Response: Didn't find anything relevant to answer this question.\n\n"
+
 
     notifier = Notifier()
 
     try:
         # Send a plain text message with gmail
+        # TODO: use message id to reply to the message (thread, in_reply_to)
         gmail_credentials = vault.get_secret("Google")
         notifier.notify_gmail(
             message=body,
